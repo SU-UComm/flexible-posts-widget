@@ -133,9 +133,6 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 		add_action( 'admin_enqueue_scripts', array( $this, 'register_admin_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'register_admin_scripts' ) );
 		
-		// Setup our get terms/AJAX callback
-		add_action( 'wp_ajax_dpe_fp_get_terms', array( &$this, 'terms_checklist' ) );
-		
 	}
 	
 	/**
@@ -465,43 +462,6 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 
 	} // end register_admin_scripts
 	
-	
-	/**
-	 * Return a list of terms for the chosen taxonomy used via AJAX
-	 */
-	public function terms_checklist( $term ) {
-
-		$taxonomy = esc_attr( $_POST['taxonomy'] );
-
-		if ( ! isset( $term ) )
-			$term = esc_attr( $_POST['term'] );
-		
-		if ( empty( $taxonomy ) || 'none' == $taxonomy ) {
-			echo false;
-			die();
-		}
-		
-		$args = array (
-			'hide_empty' => 0,
-		);
-		
-		$terms = get_terms( $taxonomy, $args );
-		
-		if( empty($terms) ) { 
-			$output = '<p>' . __( 'No terms found.', $this->get_widget_text_domain() ) . '</p>';
-		} else {
-			$output = '<ul class="categorychecklist termschecklist form-no-clear">';
-			foreach ( $terms as $option ) {
-				$output .= "\n<li>" . '<label class="selectit"><input value="' . esc_attr( $option->slug ) . '" type="checkbox" name="' . $this->get_field_name('term') . '[]"' . checked( in_array( $option->slug, (array)$term ), true, false ) . ' /> ' . esc_html( $option->name ) . "</label></li>\n";
-			}
-			$output .= "</ul>\n";
-		}
-		
-		echo ( $output );
-		
-		die();
-		
-	}
 	
 	/**
      * Return a list of post types via AJAX
