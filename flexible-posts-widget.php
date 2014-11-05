@@ -210,18 +210,38 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 			// Setup the post types
 			$args['post_type'] = $posttype;
 			
-			// Setup the tax & term query based on the user's selection
-			if ( $taxonomy != 'none' && !empty( $term ) ) {
-				$args['tax_query'] = array(
-					array(
-						'taxonomy'	=> $taxonomy,
-						'field'		=> 'slug',
-						'terms'		=> $term,
-					)
-				);
-			}
-			
-		}
+			// Setup the taxonomies & terms query based on the user's selection
+      if ( !empty( $tax_terms ) && $include_terms != 'ANY' ) {
+        $args['tax_query'] = array(
+            'relation' => $include_terms  // 'AND' for all terms, 'OR' for any term
+        );
+        foreach ( $tax_terms as $taxonomy => $terms ) {
+
+          if ( $args['tax_query']['relation'] == 'OR' ) {
+            // if you want posts with any of the specified tags within a single taxononmy,
+            // you can pass an array of terms for the taxonomy
+            $args['tax_query'][] = array(
+              'taxonomy'=> $taxonomy,
+              'field'		=> 'slug',
+              'terms'		=> $terms,
+            );
+          }
+          else {
+            // if you want posts with all the specified tags within a single taxonomy,
+            // you must specify each term separately
+            foreach ( $terms as $term ) {
+              $args['tax_query'][] = array(
+                'taxonomy'=> $taxonomy,
+                'field'		=> 'slug',
+                'terms'		=> array($term),
+              );
+            }
+          }
+
+        }
+      }
+
+    }
 		
 		// Finish the query
 		$args['post_status']			= array( 'publish', 'inherit' );
@@ -266,26 +286,26 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 		}
 		if( empty( $posttypes ) )
 			$posttypes[] = 'post';
-		
-		// Validate taxonomy & term submissions 
-		if( in_array( $new_instance['taxonomy'], $this->tax_names ) ) {
-			$taxonomy	= $new_instance['taxonomy'];
-			$terms		= array();
-			if( 'none' != $taxonomy ) {
-				$term_objects = get_terms( $taxonomy, array( 'hide_empty' => false ) );
-				$term_names = array();
-				foreach ( $term_objects as $object ) {
-					$term_names[] = $object->slug;
-				}
-				foreach( $new_instance['term'] as $term ) {
-					if( in_array( $term, $term_names ) )
-						$terms[] = $term;
-				}
-			}
-		} else {
-			$taxonomy = 'none';
-			$terms = array();
-		}
+
+
+    // Validate taxonomy & term submissions
+    $tax_terms = array();
+    $new_instance['include_terms'] = strtoupper($new_instance['include_terms']);
+    if ( $new_instance['include_terms'] != 'ANY' ) { // if not ignoring terms
+      foreach ( $new_instance['tax_terms'] as $taxonomy => $terms ) {
+        if( in_array( $taxonomy, $this->tax_names ) ) {
+          $term_objects = get_terms( $taxonomy, array( 'hide_empty' => false ) );
+          $term_slugs = array();
+          foreach ( $term_objects as $object ) {
+            $term_slugs[] = $object->slug;
+          }
+          foreach( $terms as $term ) {
+            if( in_array( $term, $term_slugs ) )
+              $tax_terms[$taxonomy][] = $term;
+          }
+        }
+      }
+    }
 		
 		// Validate Post ID submissions 
 		$pids = array();
@@ -299,8 +319,8 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 		$instance 				= $old_instance;
 		$instance['title']		= strip_tags( $new_instance['title'] );
 		$instance['posttype']	= $posttypes;
-		$instance['taxonomy']	= $taxonomy;
-		$instance['term']		= $terms;
+    $instance['include_terms'] = in_array ( $new_instance['include_terms'], array('ANY', 'AND', 'OR') ) ? $new_instance['include_terms'] : 'ANY';
+		$instance['tax_terms']	= $tax_terms;
 		$instance['pids']		= $pids;
 		$instance['number']		= (int) $new_instance['number'];
 		$instance['offset']		= (int) $new_instance['offset'];
@@ -311,12 +331,16 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 		$instance['thumbsize']	= ( in_array ( $new_instance['thumbsize'], $this->thumbsizes ) ? $new_instance['thumbsize'] : '' );
 		$instance['template']	= ( array_key_exists( $new_instance['template'], $this->templates ) ? $new_instance['template'] : 'default.php' );
 		$instance['cur_tab']	= (int) $new_instance['cur_tab'];
-        
-        return $instance;
-      
-    }
 
-    /**
+    // delete fields used by previous version of plugin
+    unset( $instance['taxonomy'] );
+    unset( $instance['term'] );
+
+    return $instance;
+
+  }
+
+  /**
 	 * Back-end widget form.
 	 *
 	 * @see WP_Widget::form()
@@ -324,12 +348,20 @@ class DPE_Flexible_Posts_Widget extends WP_Widget {
 	 * @param array $instance Previously saved values from database.
 	 */
 	public function form( $instance ) {
-		
-		$instance = wp_parse_args( (array) $instance, array(
+
+    // handle instances from previous versions that only allow terms from a single taxonomy
+		if ( is_string($instance['taxonomy']) && $instance['taxonomy'] != 'none'
+         && is_array($instance['term']) && !empty($instance['term'])
+       ) {
+      $instance['tax_terms'][$instance['taxonomy']] = $instance['term'];
+      $instance['include_terms'] = 'OR';
+    }
+
+    $instance = wp_parse_args( (array) $instance, array(
 			'title'		=> '',
 			'posttype'	=> array( 'post' ),
-			'taxonomy'	=> 'none',
-			'term'		=> array(),
+      'include_terms' => 'ANY',
+			'tax_terms' => array(),
 			'pids'		=> '',
 			'number'	=> '3',
 			'offset'	=> '0',

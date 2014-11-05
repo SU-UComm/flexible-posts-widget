@@ -27,8 +27,8 @@ if ( !defined( 'ABSPATH' ) )
 				
 				<ul id="<?php echo $this->get_field_id( 'getemby-tabs' ); ?>" class="category-tabs">
 					<li><a title="<?php _e( 'Post Type', $this->get_widget_text_domain() ); ?>" href="#<?php echo $this->get_field_id( 'getemby-pt' ); ?>"><?php _e( 'Post Type', $this->get_widget_text_domain() ); ?></a></li>
-					<li><a title="<?php _e( 'Taxonomy &amp; Term', $this->get_widget_text_domain() ); ?>" href="#<?php echo $this->get_field_id( 'getemby-tt' ); ?>"><?php _e( 'Taxonomy &amp; Term', $this->get_widget_text_domain() ); ?></a></li>
-					<li><a title="<?php _e( 'Post ID', $this->get_widget_text_domain() ); ?>" href="#<?php echo $this->get_field_id( 'getemby-id' ); ?>"><?php _e( 'ID', $this->get_widget_text_domain() ); ?></a></li>
+					<li><a title="<?php _e( 'Terms',     $this->get_widget_text_domain() ); ?>" href="#<?php echo $this->get_field_id( 'getemby-tt' ); ?>"><?php _e( 'Terms',     $this->get_widget_text_domain() ); ?></a></li>
+					<li><a title="<?php _e( 'Post ID',   $this->get_widget_text_domain() ); ?>" href="#<?php echo $this->get_field_id( 'getemby-id' ); ?>"><?php _e( 'ID',        $this->get_widget_text_domain() ); ?></a></li>
 				</ul>
 				
 				<div id="<?php echo $this->get_field_id( 'getemby-pt' ); ?>" class="tabs-panel pt">
@@ -36,42 +36,27 @@ if ( !defined( 'ABSPATH' ) )
 				</div><!-- .pt.getemby -->
 				
 				<div id="<?php echo $this->get_field_id( 'getemby-tt' ); ?>" class="tabs-panel tt" style="display:none;">
-					<p>	
-						<label for="<?php echo $this->get_field_id( 'taxonomy' ); ?>"><?php _e( 'Select a taxonomy:', $this->get_widget_text_domain() ); ?></label> 
-						<select class="widefat dpe-fp-taxonomy" name="<?php echo $this->get_field_name( 'taxonomy' ); ?>" id="<?php echo $this->get_field_id( 'taxonomy' ); ?>">
-							<option value="none" <?php echo 'none' == $taxonomy ? ' selected="selected"' : ''; ?>><?php _e( 'Ignore Taxonomy &amp; Term', $this->get_widget_text_domain() ); ?></option>
-							<?php
-							foreach ($this->taxonomies as $option) {
-								echo '<option value="' . $option->name . '"', $taxonomy == $option->name ? ' selected="selected"' : '', '>', $option->label, '</option>';
-							}
-							?>
-						</select>		
-					</p>
-					<label <?php echo 'none' == $taxonomy ? ' style="display:none;"' : ''; ?>><?php _e( 'Select terms:', $this->get_widget_text_domain() ); ?></label> 
-					<div class="terms" <?php echo 'none' == $taxonomy ? ' style="display:none;"' : ''; ?>>
-						<?php
-							if ( !empty( $taxonomy ) && 'none' != $taxonomy ) {
-							
-								$args = array (
-									'hide_empty' => 0,
-								);
-								
-								$terms = get_terms( $taxonomy, $args );
-								
-								if( ! empty( $terms ) ) {
-									$output = '<ul class="categorychecklist termschecklist form-no-clear">';
-									foreach ( $terms as $option ) {
-										$output .= "\n<li>" . '<label class="selectit"><input value="' . esc_attr( $option->slug ) . '" type="checkbox" name="' . $this->get_field_name( 'term' ) . '[]"' . checked( in_array( $option->slug, (array)$term ), true, false ) . ' /> ' . esc_html( $option->name ) . "</label></li>\n";
-									}
-									$output .= "</ul>\n";
-								} else {
-									$output = '<p>' . __( 'No terms found.', $this->get_widget_text_domain() ) . '</p>';
-								}
-								
-								echo ( $output );
-							}
-						?>
-					</div>
+          <h4 style="margin-top: 0;"><?php _e( 'Include posts with:', $this->get_widget_text_domain() ); ?></h4>
+          <label class="selectit"><input type="radio" value="ANY" name="<?php echo $this->get_field_name('include_terms'); ?>" <?php checked('ANY', $include_terms); ?> /><?php _e( 'any terms (don\'t limit based on terms)',  $this->get_widget_text_domain() ); ?></label>
+          <br/>
+          <label class="selectit"><input type="radio" value="OR"  name="<?php echo $this->get_field_name('include_terms'); ?>" <?php checked('OR',  $include_terms); ?> /><?php _e( 'any terms selected below',  $this->get_widget_text_domain() ); ?></label>
+          <br/>
+          <label class="selectit"><input type="radio" value="AND" name="<?php echo $this->get_field_name('include_terms'); ?>" <?php checked('AND', $include_terms); ?> /><?php _e( 'all terms selected below', $this->get_widget_text_domain() ); ?></label>
+          <hr/>
+          <?php foreach ($this->taxonomies as $tax) { ?>
+            <h4><?php echo $tax->label; ?></h4>
+            <?php
+              $terms = get_terms($tax->name, array('hide_empty' => 0));
+              if (!empty($terms)) {
+                foreach ($terms as $term) {
+                  ?>
+            <label class="selectit"><input type="checkbox" value="<?php echo esc_attr($term->slug); ?>" name="<?php echo $this->get_field_name('tax_terms') . "[{$tax->name}][]"; ?>" <?php checked(in_array(esc_attr($term->slug), (array)$tax_terms[$tax->name])); ?> /><?php echo esc_html($term->name); ?></label>
+                  <br/>
+                  <?php
+                }
+              }
+            ?>
+          <?php } ?>
 				</div><!-- .tt.getemby -->
 				
 				<div id="<?php echo $this->get_field_id( 'getemby-id' ); ?>" class="tabs-panel id" style="display:none;">
@@ -87,7 +72,7 @@ if ( !defined( 'ABSPATH' ) )
 		</div><!-- .inside -->
 	
 	</div>
-	
+  <hr/>
 	<div class="section display">
 		<h4><?php _e( 'Display options', $this->get_widget_text_domain() ); ?></h4>
 		<p class="check cf">
